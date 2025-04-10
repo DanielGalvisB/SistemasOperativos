@@ -1,0 +1,97 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <string.h>
+
+// Funcion para leer arreglo de un archivo
+int* leer_arreglo(const char* nombre_archivo, int cantidad) {
+    FILE* archivo = fopen(nombre_archivo, "r");
+    if (!archivo) {
+        perror("Error al abrir el archivo");
+        exit(EXIT_FAILURE);
+    }
+
+    int* arreglo = (int*) malloc(cantidad * sizeof(int));
+    if (!arreglo) {
+        perror("Error al asignar memoria");
+        exit(EXIT_FAILURE);
+    }
+
+    for (int i = 0; i < cantidad; i++) {
+        fscanf(archivo, "%d", &arreglo[i]);
+    }
+    fclose(archivo);
+    return arreglo;
+}
+
+// Funcion para sumar elementos de un arreglo
+int sumar_arreglo(int* arreglo, int cantidad) {
+    int suma = 0;
+    for (int i = 0; i < cantidad; i++) {
+        suma += arreglo[i];
+    }
+    return suma;
+}
+
+int main(int argc, char* argv[]) {
+    if (argc != 5) {
+        fprintf(stderr, "Uso: %s N1 archivo00 N2 archivo01\n", argv[0]);
+        return 1;
+    }
+
+    int N1 = atoi(argv[1]);
+    const char* archivo00 = argv[2];
+    int N2 = atoi(argv[3]);
+    const char* archivo01 = argv[4];
+
+    int* arreglo1 = leer_arreglo(archivo00, N1);
+    int* arreglo2 = leer_arreglo(archivo01, N2);
+
+    int pipe_fd[2];
+    pipe(pipe_fd);
+
+    pid_t pid1 = fork();
+    if (pid1 == 0) {
+        // Primer hijo
+        pid_t pid2 = fork();
+        if (pid2 == 0) {
+            // Nieto - suma arreglo1
+            int sumaA = sumar_arreglo(arreglo1, N1);
+            write(pipe_fd[1], &sumaA, sizeof(int));
+            exit(0);
+        } else {
+            wait(NULL); // Espera al nieto
+            pid_t pid3 = fork();
+            if (pid3 == 0) {
+                // Segundo hijo - suma arreglo2
+                int sumaB = sumar_arreglo(arreglo2, N2);
+                write(pipe_fd[1], &sumaB, sizeof(int));
+                exit(0);
+            } else {
+                wait(NULL); // Espera al segundo hijo
+                // Primer hijo - suma ambos
+                int suma_total = sumar_arreglo(arreglo1, N1) + sumar_arreglo(arreglo2, N2);
+                write(pipe_fd[1], &suma_total, sizeof(int));
+                exit(0);
+            }
+        }
+    } else {
+        wait(NULL); // Espera al primer hijo
+        close(pipe_fd[1]); // Cerrar escritura
+
+        int sumaA, sumaB, suma_total;
+        read(pipe_fd[0], &sumaA, sizeof(int));
+        read(pipe_fd[0], &sumaB, sizeof(int));
+        read(pipe_fd[0], &suma_total, sizeof(int));
+
+        printf("Suma arreglo 1: %d\n", sumaA);
+        printf("Suma arreglo 2: %d\n", sumaB);
+        printf("Suma total: %d\n", suma_total);
+    }
+
+    free(arreglo1);
+    free(arreglo2);
+    return 0;
+}
