@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 #**************************************************************
 #         		Pontificia Universidad Javeriana
-#     Autor: Julián Pérez
+#     Autor: Daniel Galvis
 #     Fecha: Abril 20255
 #     Materia: Sistemas Operativos
 #     Tema: Taller de Evaluación de Rendimiento
